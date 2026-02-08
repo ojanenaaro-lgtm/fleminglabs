@@ -1,26 +1,129 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FAFAF7;
+  --foreground: #1a2e1a;
+  --primary: #2D5A3D;
+  --primary-hover: #234a31;
+  --primary-light: #e8f0eb;
+  --muted: #6b7c6b;
+  --border: #d4dcd4;
+  --input-bg: #ffffff;
+  --error: #b91c1c;
+  --sidebar-bg: #FFFFFF;
+  --sidebar-active: #8BA888;
+  --sidebar-hover: #F5F2EB;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --sage: #7C9A82;
+  --sage-light: #a8c0ad;
+  --surface: #f0f2ee;
+
+  /* Entry type badge colors */
+  --badge-green: #16a34a;
+  --badge-green-bg: #f0fdf4;
+  --badge-blue: #2563eb;
+  --badge-blue-bg: #eff6ff;
+  --badge-amber: #d97706;
+  --badge-amber-bg: #fffbeb;
+  --badge-gray: #4b5563;
+  --badge-gray-bg: #f3f4f6;
+  --badge-purple: #7c3aed;
+  --badge-purple-bg: #f5f3ff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-input-bg: var(--input-bg);
+  --color-error: var(--error);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sage: var(--sage);
+  --color-sage-light: var(--sage-light);
+  --color-surface: var(--surface);
+  --font-heading: var(--font-instrument-sans);
+  --font-body: var(--font-source-sans-3);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.15); opacity: 0.15; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), system-ui, sans-serif;
+}
+
+/* ── Serendipity Engine ─────────────────────────────────────────────── */
+
+@keyframes connection-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(45, 90, 61, 0); }
+  50% { box-shadow: 0 0 12px 2px rgba(45, 90, 61, 0.12); }
+}
+
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sidebar-slide {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.connection-new {
+  animation: connection-glow 2.5s ease-in-out infinite;
+}
+
+.connection-card-enter {
+  animation: card-enter 0.3s ease-out both;
+}
+
+.detail-sidebar-enter {
+  animation: sidebar-slide 0.2s ease-out both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Landing page animations ──────────────────────────────────────── */
+
+@keyframes waveform-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes waveform-breathe {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.15); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
 }
