@@ -43,7 +43,6 @@ export function ProjectModal({ open, onClose, userId }: ProjectModalProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [tags, setTags] = useState("");
   const [template, setTemplate] = useState<string>("blank");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,27 +129,6 @@ export function ProjectModal({ open, onClose, userId }: ProjectModalProps) {
               placeholder="Brief description of this project..."
               rows={3}
               className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-none"
-            />
-          </div>
-
-          {/* Tags */}
-          <div>
-            <label
-              htmlFor="project-tags"
-              className="block text-sm font-medium mb-1.5"
-            >
-              Tags
-              <span className="text-muted font-normal ml-1">
-                (comma-separated, optional)
-              </span>
-            </label>
-            <input
-              id="project-tags"
-              type="text"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="e.g. genomics, CRISPR, mammalian-cells"
-              className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
             />
           </div>
 

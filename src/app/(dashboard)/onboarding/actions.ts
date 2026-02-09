@@ -19,7 +19,7 @@ export async function saveOnboardingProfile(formData: {
   await supabase.from("profiles").upsert({
     id: user.id,
     full_name: formData.full_name,
-    lab: formData.lab,
+    lab_name: formData.lab,
     institution: formData.institution,
     research_focus: formData.research_focus,
     updated_at: new Date().toISOString(),

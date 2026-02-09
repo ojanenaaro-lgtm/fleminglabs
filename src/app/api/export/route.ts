@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { ENTRY_TYPE_LABELS } from "@/lib/types";
 import type { ExportFormat, ExportScope, Entry } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
@@ -24,7 +25,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Fetch entries based on scope
   let entries: Entry[] = [];
   let title = "FlemingLabs Export";
 
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       .eq("id", id)
       .eq("user_id", user.id);
     entries = (data as Entry[]) || [];
-    title = `Entry Export`;
+    title = entries[0]?.title || "Entry Export";
   } else if (scope === "session") {
     const { data: session } = await supabase
       .from("sessions")
@@ -79,25 +79,14 @@ export async function POST(request: NextRequest) {
 
     title = collection?.name || "Collection Export";
   } else if (scope === "project") {
-    // Get all sessions for the project, then all entries
-    const { data: sessions } = await supabase
-      .from("sessions")
-      .select("id")
+    const { data } = await supabase
+      .from("entries")
+      .select("*")
       .eq("project_id", id)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
 
-    const sessionIds = (sessions || []).map((s) => s.id);
-
-    if (sessionIds.length > 0) {
-      const { data } = await supabase
-        .from("entries")
-        .select("*")
-        .in("session_id", sessionIds)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: true });
-
-      entries = (data as Entry[]) || [];
-    }
+    entries = (data as Entry[]) || [];
 
     const { data: project } = await supabase
       .from("projects")
@@ -108,118 +97,126 @@ export async function POST(request: NextRequest) {
     title = project?.name || "Project Export";
   }
 
-  const entryTypeLabels: Record<string, string> = {
-    observation: "Observation",
-    protocol_step: "Protocol Step",
-    voice_note: "Voice Note",
-    measurement: "Measurement",
-    annotation: "Annotation",
+  if (format === "markdown") {
+    return buildMarkdown(entries, title);
+  }
+  if (format === "json") {
+    return buildJson(entries, title);
+  }
+  if (format === "csv") {
+    return buildCsv(entries, title);
+  }
+  if (format === "pdf") {
+    return buildPdfHtml(entries, title);
+  }
+
+  return NextResponse.json({ error: "Unsupported format" }, { status: 400 });
+}
+
+function buildMarkdown(entries: Entry[], title: string) {
+  const lines: string[] = [
+    `# ${title}`,
+    `\nExported: ${new Date().toISOString()}\n`,
+    `---\n`,
+  ];
+
+  for (const entry of entries) {
+    const heading = entry.title || ENTRY_TYPE_LABELS[entry.entry_type] || entry.entry_type;
+    lines.push(`## ${heading}`);
+    lines.push(`**Type:** ${ENTRY_TYPE_LABELS[entry.entry_type] || entry.entry_type}`);
+    lines.push(`**Date:** ${new Date(entry.created_at).toLocaleString()}`);
+    if (entry.tags.length > 0) {
+      lines.push(`**Tags:** ${entry.tags.join(", ")}`);
+    }
+    lines.push("");
+    lines.push(entry.content || "");
+    lines.push("");
+    if (entry.raw_transcript) {
+      lines.push(`> **Raw transcript:** ${entry.raw_transcript}`);
+      lines.push("");
+    }
+    lines.push("---\n");
+  }
+
+  lines.push(`\n_Exported from FlemingLabs_`);
+
+  return new Response(lines.join("\n"), {
+    headers: {
+      "Content-Type": "text/markdown; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${slugify(title)}.md"`,
+    },
+  });
+}
+
+function buildJson(entries: Entry[], title: string) {
+  const output = {
+    title,
+    exported_at: new Date().toISOString(),
+    entry_count: entries.length,
+    entries: entries.map((e) => ({
+      id: e.id,
+      type: e.entry_type,
+      title: e.title,
+      content: e.content,
+      raw_transcript: e.raw_transcript,
+      tags: e.tags,
+      metadata: e.metadata,
+      created_at: e.created_at,
+      updated_at: e.updated_at,
+    })),
   };
 
-  // Format output
-  if (format === "markdown") {
-    const lines: string[] = [];
-    lines.push(`# ${title}`);
-    lines.push(`\nExported: ${new Date().toISOString()}\n`);
-    lines.push(`---\n`);
+  return new Response(JSON.stringify(output, null, 2), {
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${slugify(title)}.json"`,
+    },
+  });
+}
 
-    for (const entry of entries) {
-      lines.push(
-        `## ${entryTypeLabels[entry.entry_type] || entry.entry_type}`
-      );
-      lines.push(`**Date:** ${new Date(entry.created_at).toLocaleString()}`);
-      if (entry.tags.length > 0) {
-        lines.push(`**Tags:** ${entry.tags.join(", ")}`);
-      }
-      lines.push("");
-      lines.push(entry.content || "_No content_");
-      lines.push("");
-      if (entry.raw_transcript) {
-        lines.push(`> **Raw transcript:** ${entry.raw_transcript}`);
-        lines.push("");
-      }
-      lines.push("---\n");
-    }
+function buildCsv(entries: Entry[], title: string) {
+  const headers = [
+    "id",
+    "type",
+    "title",
+    "content",
+    "raw_transcript",
+    "tags",
+    "created_at",
+    "updated_at",
+  ];
+  const rows = entries.map((e) =>
+    [
+      e.id,
+      e.entry_type,
+      csvEscape(e.title || ""),
+      csvEscape(e.content || ""),
+      csvEscape(e.raw_transcript || ""),
+      e.tags.join("; "),
+      e.created_at,
+      e.updated_at,
+    ].join(",")
+  );
 
-    lines.push(`\n_Exported from FlemingLabs_`);
+  return new Response([headers.join(","), ...rows].join("\n"), {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${slugify(title)}.csv"`,
+    },
+  });
+}
 
-    const content = lines.join("\n");
-    return new Response(content, {
-      headers: {
-        "Content-Type": "text/markdown; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${slugify(title)}.md"`,
-      },
-    });
-  }
-
-  if (format === "json") {
-    const output = {
-      title,
-      exported_at: new Date().toISOString(),
-      entry_count: entries.length,
-      entries: entries.map((e) => ({
-        id: e.id,
-        type: e.entry_type,
-        content: e.content,
-        raw_transcript: e.raw_transcript,
-        tags: e.tags,
-        metadata: e.metadata,
-        created_at: e.created_at,
-        updated_at: e.updated_at,
-      })),
-    };
-
-    return new Response(JSON.stringify(output, null, 2), {
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${slugify(title)}.json"`,
-      },
-    });
-  }
-
-  if (format === "csv") {
-    const headers = [
-      "id",
-      "type",
-      "content",
-      "raw_transcript",
-      "tags",
-      "created_at",
-      "updated_at",
-    ];
-    const rows = entries.map((e) =>
-      [
-        e.id,
-        e.entry_type,
-        csvEscape(e.content || ""),
-        csvEscape(e.raw_transcript || ""),
-        e.tags.join("; "),
-        e.created_at,
-        e.updated_at,
-      ].join(",")
-    );
-
-    const content = [headers.join(","), ...rows].join("\n");
-    return new Response(content, {
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${slugify(title)}.csv"`,
-      },
-    });
-  }
-
-  if (format === "pdf") {
-    // Generate a simple HTML-based PDF structure
-    // In production, use a PDF library like @react-pdf/renderer or puppeteer
-    const html = `<!DOCTYPE html>
+function buildPdfHtml(entries: Entry[], title: string) {
+  const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${escapeHtml(title)}</title>
+  <title>${esc(title)}</title>
   <style>
     body { font-family: 'Georgia', serif; max-width: 700px; margin: 40px auto; color: #1a2e1a; line-height: 1.6; }
     h1 { color: #2D5A3D; border-bottom: 2px solid #2D5A3D; padding-bottom: 8px; }
     .entry { margin: 24px 0; padding: 16px; border: 1px solid #d4dcd4; border-radius: 8px; }
+    .entry-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
     .entry-type { font-size: 12px; font-weight: 600; color: #2D5A3D; text-transform: uppercase; letter-spacing: 0.5px; }
     .entry-date { font-size: 12px; color: #6b7c6b; }
     .entry-content { margin-top: 8px; }
@@ -230,18 +227,19 @@ export async function POST(request: NextRequest) {
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(title)}</h1>
+  <h1>${esc(title)}</h1>
   <p style="color: #6b7c6b; font-size: 14px;">Lab Notebook Export &mdash; ${new Date().toLocaleDateString()}</p>
 
   ${entries
     .map(
       (e) => `
   <div class="entry">
-    <div class="entry-type">${escapeHtml(entryTypeLabels[e.entry_type] || e.entry_type)}</div>
+    ${e.title ? `<div class="entry-title">${esc(e.title)}</div>` : ""}
+    <div class="entry-type">${esc(ENTRY_TYPE_LABELS[e.entry_type] || e.entry_type)}</div>
     <div class="entry-date">${new Date(e.created_at).toLocaleString()}</div>
-    <div class="entry-content">${escapeHtml(e.content || "No content")}</div>
-    ${e.tags.length > 0 ? `<div class="tags">Tags: ${e.tags.map((t) => escapeHtml(t)).join(", ")}</div>` : ""}
-    ${e.raw_transcript ? `<div class="transcript">${escapeHtml(e.raw_transcript)}</div>` : ""}
+    <div class="entry-content">${esc(e.content || "")}</div>
+    ${e.tags.length > 0 ? `<div class="tags">Tags: ${e.tags.map((t) => esc(t)).join(", ")}</div>` : ""}
+    ${e.raw_transcript ? `<div class="transcript">${esc(e.raw_transcript)}</div>` : ""}
   </div>`
     )
     .join("\n")}
@@ -257,15 +255,12 @@ export async function POST(request: NextRequest) {
 </body>
 </html>`;
 
-    return new Response(html, {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${slugify(title)}.html"`,
-      },
-    });
-  }
-
-  return NextResponse.json({ error: "Unsupported format" }, { status: 400 });
+  return new Response(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${slugify(title)}.html"`,
+    },
+  });
 }
 
 function slugify(text: string): string {
@@ -282,7 +277,7 @@ function csvEscape(value: string): string {
   return value;
 }
 
-function escapeHtml(text: string): string {
+function esc(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

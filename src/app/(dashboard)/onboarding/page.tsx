@@ -44,17 +44,12 @@ export default function OnboardingPage() {
   }, []);
 
   // Demo timer — auto-stop at 30s
+  const recorderStop = recorder.stop;
   useEffect(() => {
     if (recorder.state === "recording") {
       setDemoSeconds(0);
       demoTimerRef.current = setInterval(() => {
-        setDemoSeconds((prev) => {
-          if (prev >= DEMO_MAX_SECONDS - 1) {
-            recorder.stop();
-            return DEMO_MAX_SECONDS;
-          }
-          return prev + 1;
-        });
+        setDemoSeconds((prev) => prev + 1);
       }, 1000);
     } else {
       if (demoTimerRef.current) {
@@ -63,9 +58,19 @@ export default function OnboardingPage() {
       }
     }
     return () => {
-      if (demoTimerRef.current) clearInterval(demoTimerRef.current);
+      if (demoTimerRef.current) {
+        clearInterval(demoTimerRef.current);
+        demoTimerRef.current = null;
+      }
     };
-  }, [recorder.state, recorder]);
+  }, [recorder.state]);
+
+  // Auto-stop when demo hits max
+  useEffect(() => {
+    if (demoSeconds >= DEMO_MAX_SECONDS && recorder.state === "recording") {
+      recorderStop();
+    }
+  }, [demoSeconds, recorder.state, recorderStop]);
 
   const handleNext = useCallback(async () => {
     // Save profile when leaving step 2

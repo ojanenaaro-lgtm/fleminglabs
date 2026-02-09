@@ -62,18 +62,6 @@ export async function updateProject(
   return data as Project;
 }
 
-export async function deleteProject(
-  supabase: SupabaseClient,
-  projectId: string
-) {
-  const { error } = await supabase
-    .from("projects")
-    .delete()
-    .eq("id", projectId);
-
-  if (error) throw error;
-}
-
 // ── Sessions ────────────────────────────────────────────────────────────
 
 export async function getProjectSessions(
@@ -162,20 +150,6 @@ export async function getCollections(
   return data as Collection[];
 }
 
-export async function getAllUserCollections(
-  supabase: SupabaseClient,
-  userId: string
-) {
-  const { data, error } = await supabase
-    .from("collections")
-    .select("*, projects!inner(owner_id)")
-    .eq("projects.owner_id", userId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return data as (Collection & { projects: { owner_id: string } })[];
-}
-
 export async function createCollection(
   supabase: SupabaseClient,
   collection: { project_id: string; name: string; description?: string }
@@ -202,32 +176,6 @@ export async function getCollectionEntries(
 
   if (error) throw error;
   return data as (CollectionEntry & { entries: Entry })[];
-}
-
-export async function addToCollection(
-  supabase: SupabaseClient,
-  collectionId: string,
-  entryId: string
-) {
-  const { error } = await supabase
-    .from("collection_entries")
-    .insert({ collection_id: collectionId, entry_id: entryId });
-
-  if (error) throw error;
-}
-
-export async function removeFromCollection(
-  supabase: SupabaseClient,
-  collectionId: string,
-  entryId: string
-) {
-  const { error } = await supabase
-    .from("collection_entries")
-    .delete()
-    .eq("collection_id", collectionId)
-    .eq("entry_id", entryId);
-
-  if (error) throw error;
 }
 
 // ── Aggregations ────────────────────────────────────────────────────────

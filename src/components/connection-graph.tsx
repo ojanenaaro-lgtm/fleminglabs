@@ -8,6 +8,7 @@ import {
   useCallback,
 } from "react";
 import * as d3 from "d3";
+import { ENTRY_TYPE_LABELS } from "@/lib/types";
 import type {
   Entry,
   EntryType,
@@ -48,16 +49,6 @@ const EDGE_COLORS: Record<ConnectionType, string> = {
   literature_link: "#7c3aed",
 };
 
-const ENTRY_LABELS: Record<EntryType, string> = {
-  voice_note: "Voice Note",
-  observation: "Observation",
-  measurement: "Measurement",
-  protocol_step: "Protocol",
-  annotation: "Annotation",
-  hypothesis: "Hypothesis",
-  anomaly: "Anomaly",
-  idea: "Idea",
-};
 
 /* ── graph data types ────────────────────────────────────────────────── */
 
@@ -502,7 +493,7 @@ export function ConnectionGraph({
               style={{ backgroundColor: NODE_COLORS[t] }}
             />
             <span className="text-[10px] text-muted">
-              {ENTRY_LABELS[t]}
+              {ENTRY_TYPE_LABELS[t]}
             </span>
           </div>
         ))}
@@ -526,7 +517,7 @@ export function ConnectionGraph({
               }}
             />
             <span className="text-[10px] font-medium text-muted uppercase tracking-wide">
-              {ENTRY_LABELS[tooltip.node.entry.entry_type] ||
+              {ENTRY_TYPE_LABELS[tooltip.node.entry.entry_type] ||
                 tooltip.node.entry.entry_type}
             </span>
           </div>

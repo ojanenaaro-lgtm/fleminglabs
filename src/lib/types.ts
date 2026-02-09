@@ -39,6 +39,17 @@ export type EntryType =
   | "anomaly"
   | "idea";
 
+export const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
+  voice_note: "Voice Note",
+  observation: "Observation",
+  measurement: "Measurement",
+  protocol_step: "Protocol Step",
+  annotation: "Annotation",
+  hypothesis: "Hypothesis",
+  anomaly: "Anomaly",
+  idea: "Idea",
+};
+
 export type Entry = {
   id: string;
   session_id: string;
@@ -147,10 +158,6 @@ export type LiteratureResult = {
   relevance_reasoning: string;
 };
 
-export type LiteratureResponse = {
-  papers: LiteratureResult[];
-};
-
 // ── Speech-to-Text Pipeline ─────────────────────────────────────────────
 
 export type TranscriptTag =
@@ -168,19 +175,6 @@ export type TranscriptSegment = {
   isFinal: boolean;
   confidence: number; // 0–1
   tag?: TranscriptTag;
-};
-
-export type WhisperSegment = {
-  id: number;
-  start: number;
-  end: number;
-  text: string;
-};
-
-export type WhisperResponse = {
-  text: string;
-  language: string;
-  segments: WhisperSegment[];
 };
 
 // ── Search ──────────────────────────────────────────────────────────────
@@ -202,12 +196,6 @@ export type SearchResult = {
 export type ExportFormat = "markdown" | "json" | "csv" | "pdf";
 export type ExportScope = "entry" | "session" | "collection" | "project";
 
-export type ExportRequest = {
-  format: ExportFormat;
-  scope: ExportScope;
-  id: string;
-};
-
 // ── User Preferences ────────────────────────────────────────────────────
 
 export type UserPreferences = {
@@ -215,8 +203,6 @@ export type UserPreferences = {
   auto_process_ai: boolean;
   serendipity_sensitivity: number; // 0–100
   audio_quality: "standard" | "high";
-  openai_api_key?: string;
-  anthropic_api_key?: string;
 };
 
 // ── Serendipity Engine (Connection UI) ──────────────────────────────────
@@ -267,9 +253,3 @@ export type CompanionMessage = {
   }[];
 };
 
-export type CompanionRequest = {
-  transcript_chunk: string;
-  session_id: string;
-  project_id: string;
-  full_transcript?: string;
-};

@@ -142,8 +142,7 @@ export function GlobalSearch() {
 
       if (error) throw error;
       setResults((data as SearchResult[]) || []);
-    } catch (err) {
-      console.error("Search error:", err);
+    } catch {
       setResults([]);
     } finally {
       setLoading(false);
@@ -189,10 +188,6 @@ export function GlobalSearch() {
     saveRecentSearch(query);
     setOpen(false);
     router.push(`/search?q=${encodeURIComponent(query)}`);
-  }
-
-  function handleRecentClick(q: string) {
-    setQuery(q);
   }
 
   // Scroll selected item into view
@@ -334,7 +329,7 @@ export function GlobalSearch() {
                 {recentSearches.map((recent) => (
                   <button
                     key={recent}
-                    onClick={() => handleRecentClick(recent)}
+                    onClick={() => setQuery(recent)}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-sidebar-hover transition-colors cursor-pointer"
                   >
                     <Clock className="w-4 h-4 text-muted" />

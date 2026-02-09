@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { ENTRY_TYPE_LABELS } from "@/lib/types";
 import {
   FileText,
   Mic,
@@ -66,14 +67,6 @@ const recentEntries = [
       "Noticed unusual crystal formation in the control group. Need to cross-reference with last month's data.",
   },
 ];
-
-const entryTypeLabels: Record<string, string> = {
-  observation: "Observation",
-  protocol_step: "Protocol",
-  voice_note: "Voice Note",
-  measurement: "Measurement",
-  annotation: "Annotation",
-};
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient();
@@ -150,7 +143,7 @@ export default async function DashboardPage() {
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-sm font-medium">{entry.title}</h3>
                   <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-primary-light text-primary font-medium">
-                    {entryTypeLabels[entry.type]}
+                    {ENTRY_TYPE_LABELS[entry.type]}
                   </span>
                 </div>
                 <p className="text-xs text-muted line-clamp-1">

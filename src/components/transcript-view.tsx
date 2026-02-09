@@ -39,8 +39,6 @@ type TranscriptViewProps = {
   isRecording?: boolean;
   onSegmentUpdate?: (id: string, text: string) => void;
   onTagChange?: (id: string, tag: TranscriptTag | undefined) => void;
-  onExportText?: () => void;
-  onExportJSON?: () => void;
 };
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -50,8 +48,6 @@ export default function TranscriptView({
   isRecording = false,
   onSegmentUpdate,
   onTagChange,
-  onExportText,
-  onExportJSON,
 }: TranscriptViewProps) {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -118,26 +114,6 @@ export default function TranscriptView({
           className="flex-1 px-3 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
 
-        {(onExportText || onExportJSON) && (
-          <div className="flex gap-1">
-            {onExportText && (
-              <button
-                onClick={onExportText}
-                className="px-3 py-1.5 text-xs font-medium rounded-md border border-border hover:bg-primary-light transition-colors"
-              >
-                Export .txt
-              </button>
-            )}
-            {onExportJSON && (
-              <button
-                onClick={onExportJSON}
-                className="px-3 py-1.5 text-xs font-medium rounded-md border border-border hover:bg-primary-light transition-colors"
-              >
-                Export .json
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── Segment list ────────────────────────────────────────────── */}

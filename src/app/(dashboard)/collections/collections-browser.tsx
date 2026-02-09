@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { createCollection, getCollectionEntries } from "@/lib/queries";
+import { ENTRY_TYPE_LABELS } from "@/lib/types";
 import type { Project, Collection, Entry } from "@/lib/types";
 import {
   FolderOpen,
@@ -84,14 +85,6 @@ export function CollectionsBrowser({
   const selectedCollectionData = projectsWithCollections
     .flatMap((p) => p.collections)
     .find((c) => c.id === selectedCollection);
-
-  const entryTypeLabels: Record<string, string> = {
-    observation: "Observation",
-    protocol_step: "Protocol",
-    voice_note: "Voice Note",
-    measurement: "Measurement",
-    annotation: "Annotation",
-  };
 
   if (projectsWithCollections.length === 0) {
     return (
@@ -236,7 +229,7 @@ export function CollectionsBrowser({
                         {entry.content?.slice(0, 80) || "Empty entry"}
                       </p>
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-primary-light text-primary shrink-0">
-                        {entryTypeLabels[entry.entry_type] ?? entry.entry_type}
+                        {ENTRY_TYPE_LABELS[entry.entry_type] ?? entry.entry_type}
                       </span>
                     </div>
                     <p className="text-xs text-muted">

@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { rateLimit } from "@/lib/rate-limit";
@@ -6,9 +5,8 @@ import {
   CONNECTIONS_SYSTEM,
   buildConnectionsUserPrompt,
 } from "@/lib/prompts";
+import { generateTextStream } from "@/lib/ai";
 import type { ConnectionsRequest, ConnectionsResponse } from "@/lib/types";
-
-const anthropic = new Anthropic();
 
 export async function POST(request: NextRequest) {
   // Auth check
@@ -87,7 +85,7 @@ export async function POST(request: NextRequest) {
     } satisfies ConnectionsResponse);
   }
 
-  // Send to Claude for connection discovery
+  // Send for connection discovery
   const userPrompt = buildConnectionsUserPrompt(
     body.entry_id,
     body.content,
@@ -106,21 +104,16 @@ export async function POST(request: NextRequest) {
       try {
         let fullText = "";
 
-        const messageStream = anthropic.messages.stream({
-          model: "claude-sonnet-4-5-20250929",
-          max_tokens: 2048,
-          system: CONNECTIONS_SYSTEM,
-          messages: [{ role: "user", content: userPrompt }],
-        });
-
-        messageStream.on("text", (text) => {
-          fullText += text;
+        for await (const chunk of generateTextStream(
+          CONNECTIONS_SYSTEM,
+          userPrompt,
+          2048
+        )) {
+          fullText += chunk;
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: "delta", text })}\n\n`)
+            encoder.encode(`data: ${JSON.stringify({ type: "delta", text: chunk })}\n\n`)
           );
-        });
-
-        await messageStream.finalMessage();
+        }
 
         let parsed: ConnectionsResponse;
         try {

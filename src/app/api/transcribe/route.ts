@@ -1,36 +1,7 @@
 // POST /api/transcribe — Send audio to OpenAI Whisper for high-quality transcription
 
 import { NextRequest, NextResponse } from "next/server";
-
-// ── Basic in-memory rate limiter ─────────────────────────────────────────
-
-const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 10; // requests per window
-
-const requestLog = new Map<string, number[]>();
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const timestamps = requestLog.get(ip) ?? [];
-  const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  requestLog.set(ip, recent);
-
-  if (recent.length >= RATE_LIMIT_MAX) return true;
-
-  recent.push(now);
-  requestLog.set(ip, recent);
-  return false;
-}
-
-// Clean stale entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, timestamps] of requestLog) {
-    const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-    if (recent.length === 0) requestLog.delete(ip);
-    else requestLog.set(ip, recent);
-  }
-}, 5 * 60_000);
+import { rateLimit } from "@/lib/rate-limit";
 
 // ── Route handler ────────────────────────────────────────────────────────
 
@@ -51,7 +22,8 @@ export async function POST(request: NextRequest) {
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     "unknown";
 
-  if (isRateLimited(ip)) {
+  const { success } = rateLimit(`transcribe:${ip}`);
+  if (!success) {
     return NextResponse.json(
       { error: "Rate limit exceeded. Try again in a minute." },
       { status: 429 }

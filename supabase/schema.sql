@@ -289,11 +289,12 @@ alter table public.entries add column if not exists search_vector tsvector;
 -- GIN index for fast full-text lookups
 create index if not exists idx_entries_search on public.entries using gin(search_vector);
 
--- Auto-populate search_vector from content + raw_transcript + tags
+-- Auto-populate search_vector from title + content + raw_transcript + tags
 create or replace function public.entries_search_vector_update()
 returns trigger as $$
 begin
   new.search_vector :=
+    setweight(to_tsvector('english', coalesce(new.title, '')), 'A') ||
     setweight(to_tsvector('english', coalesce(new.content, '')), 'A') ||
     setweight(to_tsvector('english', coalesce(new.raw_transcript, '')), 'B') ||
     setweight(to_tsvector('english', coalesce(array_to_string(new.tags, ' '), '')), 'C');
@@ -302,7 +303,7 @@ end;
 $$ language plpgsql;
 
 create trigger entries_search_vector_trigger
-  before insert or update of content, raw_transcript, tags on public.entries
+  before insert or update of title, content, raw_transcript, tags on public.entries
   for each row execute function public.entries_search_vector_update();
 
 -- Unified search function: searches entries, sessions, projects, connections
@@ -327,12 +328,12 @@ begin
   select
     e.id,
     'entry'::text as result_type,
-    coalesce(e.content, '')::text as title,
-    ts_headline('english', coalesce(e.content, ''), plainto_tsquery('english', search_query),
+    coalesce(e.title, left(e.content, 80))::text as title,
+    ts_headline('english', e.content, plainto_tsquery('english', search_query),
       'StartSel=<mark>, StopSel=</mark>, MaxWords=40, MinWords=20') as snippet,
     ts_rank(e.search_vector, plainto_tsquery('english', search_query))::float as relevance,
     e.created_at,
-    e.session_id as parent_id
+    e.project_id as parent_id
   from public.entries e
   where e.user_id = user_id_param
     and e.search_vector @@ plainto_tsquery('english', search_query)

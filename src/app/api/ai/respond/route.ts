@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { rateLimit } from "@/lib/rate-limit";
@@ -7,6 +6,7 @@ import {
   RESEARCH_COMPANION_PROMPT,
   buildCompanionUserPrompt,
 } from "@/lib/prompts";
+import { generateText } from "@/lib/ai";
 import type { CompanionResponse } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
@@ -38,13 +38,13 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Rate limit
   const rl = rateLimit(`companion:${user.id}`, { maxRequests: 20, windowMs: 60_000 });
   if (!rl.success) {
-    return NextResponse.json(
+    return Response.json(
       { error: "Too many requests" },
       { status: 429 }
     );
@@ -57,13 +57,12 @@ export async function POST(request: NextRequest) {
     full_transcript,
   } = body as {
     transcript_chunk: string;
-    session_id: string;
     project_id: string;
     full_transcript?: string;
   };
 
   if (!transcript_chunk) {
-    return NextResponse.json(
+    return Response.json(
       { error: "transcript_chunk is required" },
       { status: 400 }
     );
@@ -120,28 +119,8 @@ export async function POST(request: NextRequest) {
     recentEntries
   );
 
-  // Call Claude
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY not configured" },
-      { status: 500 }
-    );
-  }
-
   try {
-    const anthropic = new Anthropic({ apiKey });
-
-    const msg = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 500,
-      system: RESEARCH_COMPANION_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
-    });
-
-    // Extract text
-    const text =
-      msg.content[0].type === "text" ? msg.content[0].text : "";
+    const text = await generateText(RESEARCH_COMPANION_PROMPT, userPrompt, 500);
 
     // Parse JSON response
     let response: CompanionResponse;
@@ -156,10 +135,10 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    return NextResponse.json(response);
+    return Response.json(response);
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "AI request failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return Response.json({ error: message }, { status: 500 });
   }
 }

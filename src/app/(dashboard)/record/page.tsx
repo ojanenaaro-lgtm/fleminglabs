@@ -13,7 +13,6 @@ import { createClient } from "@/lib/supabase";
 import type { TranscriptSegment, TranscriptTag } from "@/lib/types";
 import {
   Mic,
-  Pause,
   Play,
   Square,
   ChevronLeft,
@@ -657,6 +656,7 @@ export default function RecordPage() {
                   transcript={fullTranscriptText}
                   tags={tags}
                   sessionId="new"
+                  projectId={selectedProject}
                   projectContext=""
                 />
               </div>

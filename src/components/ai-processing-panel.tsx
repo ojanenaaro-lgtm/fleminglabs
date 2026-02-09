@@ -93,6 +93,7 @@ type AiProcessingPanelProps = {
   transcript: string;
   tags: Tag[];
   sessionId: string;
+  projectId?: string;
   projectContext?: string;
   entryId?: string; // if processing an existing entry (for connections)
 };
@@ -103,6 +104,7 @@ export default function AiProcessingPanel({
   transcript,
   tags,
   sessionId,
+  projectId,
   projectContext,
   entryId,
 }: AiProcessingPanelProps) {
@@ -251,6 +253,7 @@ export default function AiProcessingPanel({
 
       const rows = entriesToSave.map(({ entry }) => ({
         session_id: sessionId,
+        project_id: projectId,
         user_id: user.id,
         entry_type: entry.entry_type,
         content: entry.content,
@@ -293,6 +296,7 @@ export default function AiProcessingPanel({
       editedEntries,
       selectedEntries,
       sessionId,
+      projectId,
       transcript,
       connections,
       dismissedConnections,

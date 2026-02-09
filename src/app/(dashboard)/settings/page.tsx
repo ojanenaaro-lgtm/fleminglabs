@@ -54,6 +54,7 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState("");
   const [labName, setLabName] = useState("");
   const [institution, setInstitution] = useState("");
+  const [researchContext, setResearchContext] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Preferences
@@ -87,6 +88,7 @@ export default function SettingsPage() {
         setFullName(profile.full_name || "");
         setLabName(profile.lab_name || "");
         setInstitution(profile.institution || "");
+        setResearchContext(profile.research_context || "");
         setAvatarUrl(profile.avatar_url || null);
       }
 
@@ -132,6 +134,7 @@ export default function SettingsPage() {
           full_name: fullName,
           lab_name: labName,
           institution,
+          research_context: researchContext || null,
         })
         .eq("id", user.id);
 
@@ -364,6 +367,21 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-bg text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                     placeholder="MIT, Stanford, etc."
                   />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">
+                    Research Context
+                  </label>
+                  <textarea
+                    value={researchContext}
+                    onChange={(e) => setResearchContext(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-bg text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-none"
+                    placeholder="Briefly describe your research area. This helps the AI provide more relevant suggestions."
+                  />
+                  <p className="text-[11px] text-muted mt-1">
+                    Used as context for AI processing and the Serendipity Engine.
+                  </p>
                 </div>
               </div>
 

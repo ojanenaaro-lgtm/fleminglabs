@@ -4,25 +4,75 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Mic, ChevronRight, Command } from "lucide-react";
+import { createClient } from "@/lib/supabase";
 
 const routeLabels: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/record": "Record",
   "/sessions": "Lab Sessions",
+  "/sessions/new": "New Session",
   "/entries": "Entries",
   "/connections": "Connections",
+  "/collections": "Collections",
   "/projects": "Projects",
   "/settings": "Settings",
   "/search": "Search",
+  "/onboarding": "Onboarding",
+};
+
+// UUID-like pattern to detect dynamic segments
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Which table to look up for a dynamic segment, based on the parent route
+const dynamicLookups: Record<string, { table: string; field: string }> = {
+  projects: { table: "projects", field: "name" },
+  entries: { table: "entries", field: "content" },
+  sessions: { table: "sessions", field: "title" },
 };
 
 export function TopBar() {
   const pathname = usePathname();
   const [isMac, setIsMac] = useState(false);
+  const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setIsMac(navigator.platform.toUpperCase().includes("MAC"));
   }, []);
+
+  // Resolve dynamic segment names from Supabase
+  useEffect(() => {
+    const segments = pathname.split("/").filter(Boolean);
+    const toResolve: { id: string; parent: string }[] = [];
+
+    for (let i = 0; i < segments.length; i++) {
+      if (UUID_RE.test(segments[i]) && !resolvedNames[segments[i]]) {
+        const parent = segments[i - 1];
+        if (parent && dynamicLookups[parent]) {
+          toResolve.push({ id: segments[i], parent });
+        }
+      }
+    }
+
+    if (toResolve.length === 0) return;
+
+    const supabase = createClient();
+    for (const { id, parent } of toResolve) {
+      const { table, field } = dynamicLookups[parent];
+      supabase
+        .from(table)
+        .select(field)
+        .eq("id", id)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            const raw = String((data as unknown as Record<string, string>)[field] ?? "");
+            // Truncate long content (entries) to first few words
+            const label = raw.length > 40 ? raw.slice(0, 37) + "..." : raw;
+            setResolvedNames((prev) => ({ ...prev, [id]: label || id.slice(0, 8) }));
+          }
+        });
+    }
+  }, [pathname, resolvedNames]);
 
   function openSearch() {
     window.dispatchEvent(new CustomEvent("fleminglabs:open-search"));
@@ -38,12 +88,19 @@ export function TopBar() {
           { label: "Dashboard", href: "/dashboard" },
           ...segments
             .filter((seg) => seg !== "dashboard")
-            .map((seg, i, arr) => ({
-              label:
-                routeLabels["/" + arr.slice(0, i + 1).join("/")] ||
-                seg.charAt(0).toUpperCase() + seg.slice(1),
-              href: "/" + arr.slice(0, i + 1).join("/"),
-            })),
+            .map((seg, i, arr) => {
+              const path = "/" + arr.slice(0, i + 1).join("/");
+              let label = routeLabels[path];
+              if (!label) {
+                // Check if this is a resolved dynamic segment
+                if (UUID_RE.test(seg)) {
+                  label = resolvedNames[seg] ?? seg.slice(0, 8) + "...";
+                } else {
+                  label = seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, " ");
+                }
+              }
+              return { label, href: path };
+            }),
         ];
 
   return (

@@ -191,11 +191,21 @@ export async function createEntry(
         .filter(Boolean)
     : [];
 
+  // Look up session's project_id (entries require project_id)
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("project_id")
+    .eq("id", sessionId)
+    .single();
+
+  if (!session) return { error: "Session not found" };
+
   const { data, error } = await supabase
     .from("entries")
     .insert({
       user_id: user.id,
       session_id: sessionId,
+      project_id: session.project_id,
       entry_type: entryType,
       content,
       tags,

@@ -78,8 +78,7 @@ export default function SearchPage() {
 
         if (error) throw error;
         setResults((data as SearchResult[]) || []);
-      } catch (err) {
-        console.error("Search error:", err);
+      } catch {
         setResults([]);
       } finally {
         setLoading(false);

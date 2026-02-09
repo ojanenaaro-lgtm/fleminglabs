@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { rateLimit } from "@/lib/rate-limit";
@@ -6,9 +5,8 @@ import {
   PROCESS_TRANSCRIPT_SYSTEM,
   buildProcessUserPrompt,
 } from "@/lib/prompts";
+import { generateTextStream } from "@/lib/ai";
 import type { ProcessRequest, ProcessResponse } from "@/lib/types";
-
-const anthropic = new Anthropic();
 
 export async function POST(request: NextRequest) {
   // Auth check
@@ -59,35 +57,30 @@ export async function POST(request: NextRequest) {
     body.projectContext
   );
 
-  // Stream response from Claude
+  // Stream response
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
       try {
         let fullText = "";
 
-        const messageStream = anthropic.messages.stream({
-          model: "claude-sonnet-4-5-20250929",
-          max_tokens: 4096,
-          system: PROCESS_TRANSCRIPT_SYSTEM,
-          messages: [{ role: "user", content: userPrompt }],
-        });
-
-        messageStream.on("text", (text) => {
-          fullText += text;
+        for await (const chunk of generateTextStream(
+          PROCESS_TRANSCRIPT_SYSTEM,
+          userPrompt,
+          4096
+        )) {
+          fullText += chunk;
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: "delta", text })}\n\n`)
+            encoder.encode(`data: ${JSON.stringify({ type: "delta", text: chunk })}\n\n`)
           );
-        });
-
-        await messageStream.finalMessage();
+        }
 
         // Parse and validate the final JSON
         let parsed: ProcessResponse;
         try {
           parsed = JSON.parse(fullText);
         } catch {
-          // If Claude wrapped in markdown fences, try to extract
+          // If model wrapped in markdown fences, try to extract
           const match = fullText.match(/```(?:json)?\s*([\s\S]*?)```/);
           if (match) {
             parsed = JSON.parse(match[1]);

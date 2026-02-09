@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { rateLimit } from "@/lib/rate-limit";
@@ -6,9 +5,8 @@ import {
   LITERATURE_RELEVANCE_SYSTEM,
   buildLiteratureUserPrompt,
 } from "@/lib/prompts";
+import { generateText } from "@/lib/ai";
 import type { LiteratureRequest, LiteratureResult } from "@/lib/types";
-
-const anthropic = new Anthropic();
 
 // ── PubMed E-Utilities helpers ──────────────────────────────────────────
 
@@ -164,7 +162,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ papers: [] });
     }
 
-    // Step 3: Ask Claude to assess relevance
+    // Step 3: Assess relevance via AI
     const userPrompt = buildLiteratureUserPrompt(
       body.context,
       articles.map((a) => ({
@@ -174,15 +172,11 @@ export async function POST(request: NextRequest) {
       }))
     );
 
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 2048,
-      system: LITERATURE_RELEVANCE_SYSTEM,
-      messages: [{ role: "user", content: userPrompt }],
-    });
-
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+    const responseText = await generateText(
+      LITERATURE_RELEVANCE_SYSTEM,
+      userPrompt,
+      2048
+    );
 
     let relevanceData: { papers: { pmid: string; relevance_reasoning: string }[] };
     try {

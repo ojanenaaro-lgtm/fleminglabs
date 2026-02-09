@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { updateProject } from "@/lib/queries";
+import { ENTRY_TYPE_LABELS } from "@/lib/types";
 import type { Project, Session, Entry, Collection } from "@/lib/types";
 import { SessionList } from "@/components/session-list";
 import {
@@ -32,14 +33,6 @@ interface ProjectDetailProps {
   entries: (Entry & { sessions: { project_id: string } })[];
   collections: Collection[];
 }
-
-const entryTypeLabels: Record<string, string> = {
-  observation: "Observation",
-  protocol_step: "Protocol",
-  voice_note: "Voice Note",
-  measurement: "Measurement",
-  annotation: "Annotation",
-};
 
 const entryTypeColors: Record<string, string> = {
   observation: "bg-emerald-50 text-emerald-700",
@@ -267,7 +260,7 @@ function EntriesTab({
                 {(entry.content?.length ?? 0) > 80 ? "..." : ""}
               </p>
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${badge}`}>
-                {entryTypeLabels[entry.entry_type] ?? entry.entry_type}
+                {ENTRY_TYPE_LABELS[entry.entry_type] ?? entry.entry_type}
               </span>
             </div>
             <div className="flex items-center gap-3 text-xs text-muted">
