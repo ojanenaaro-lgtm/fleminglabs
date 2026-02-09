@@ -14,6 +14,8 @@ const TYPE_DOT: Record<ConnectionType, string> = {
   reminds_of: "bg-gray-400",
   same_phenomenon: "bg-amber-600",
   literature_link: "bg-purple-600",
+  causal: "bg-orange-600",
+  methodological: "bg-cyan-600",
 };
 
 /* ── props ────────────────────────────────────────────────────────────── */

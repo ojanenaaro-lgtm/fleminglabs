@@ -72,6 +72,12 @@ export default function NewEntryPage() {
       if ("error" in result) {
         setError(result.error);
       } else {
+        // Fire-and-forget: auto-discover connections for the new entry
+        fetch("/api/ai/auto-connect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entry_id: result.id }),
+        }).catch(() => {});
         router.push(`/entries/${result.id}`);
       }
     } finally {

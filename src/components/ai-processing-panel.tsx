@@ -18,6 +18,9 @@ const ENTRY_TYPE_STYLES: Record<string, { bg: string; text: string; label: strin
   protocol_step:  { bg: "bg-amber-100",  text: "text-amber-800",  label: "Protocol Step" },
   annotation:     { bg: "bg-purple-100", text: "text-purple-800", label: "Annotation" },
   voice_note:     { bg: "bg-gray-100",   text: "text-gray-800",   label: "Voice Note" },
+  hypothesis:     { bg: "bg-violet-100", text: "text-violet-800", label: "Hypothesis" },
+  anomaly:        { bg: "bg-red-100",    text: "text-red-800",    label: "Anomaly" },
+  idea:           { bg: "bg-cyan-100",   text: "text-cyan-800",   label: "Idea" },
 };
 
 const CONNECTION_TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
@@ -432,13 +435,25 @@ export default function AiProcessingPanel({
         </div>
       )}
 
-      {/* ── Summary ──────────────────────────────────────────────────── */}
+      {/* ── Narrative + Summary ─────────────────────────────────────── */}
       {processResult && (
         <div className="px-4 py-3 rounded-lg border border-border bg-input-bg">
-          <h3 className="text-sm font-semibold font-heading text-foreground mb-1">
-            Summary
-          </h3>
-          <p className="text-sm text-muted">{processResult.summary}</p>
+          {processResult.narrative ? (
+            <>
+              <h3 className="text-sm font-semibold font-heading text-foreground mb-1">
+                What Happened
+              </h3>
+              <p className="text-sm text-foreground leading-relaxed">{processResult.narrative}</p>
+              <p className="text-xs text-muted mt-2">{processResult.summary}</p>
+            </>
+          ) : (
+            <>
+              <h3 className="text-sm font-semibold font-heading text-foreground mb-1">
+                Summary
+              </h3>
+              <p className="text-sm text-muted">{processResult.summary}</p>
+            </>
+          )}
 
           {/* Suggested tags */}
           {processResult.suggested_tags.length > 0 && (
@@ -449,13 +464,137 @@ export default function AiProcessingPanel({
                   className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-primary-light text-primary"
                 >
                   {tag.label}
-                  {tag.category && (
+                  {tag.category ? (
                     <span className="text-primary/50">({tag.category})</span>
-                  )}
+                  ) : null}
                 </span>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Anomalies ─────────────────────────────────────────────────── */}
+      {processResult && processResult.anomalies.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold font-heading text-foreground mb-2">
+            Anomalies Detected
+          </h3>
+          <div className="space-y-1.5">
+            {processResult.anomalies.map((anomaly, i) => {
+              const severityStyle =
+                anomaly.severity === "critical"
+                  ? "border-red-300 bg-red-50"
+                  : anomaly.severity === "concerning"
+                    ? "border-amber-300 bg-amber-50"
+                    : "border-yellow-200 bg-yellow-50";
+              const severityText =
+                anomaly.severity === "critical"
+                  ? "text-red-700"
+                  : anomaly.severity === "concerning"
+                    ? "text-amber-700"
+                    : "text-yellow-700";
+              return (
+                <div
+                  key={i}
+                  className={`px-3 py-2 rounded-lg border ${severityStyle}`}
+                >
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${severityText}`}>
+                      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    <span className={`text-xs font-semibold uppercase ${severityText}`}>
+                      {anomaly.severity}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground">{anomaly.description}</p>
+                  <p className="text-xs text-muted mt-1 italic">&ldquo;{anomaly.trigger_phrase}&rdquo;</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Extracted Measurements ────────────────────────────────────── */}
+      {processResult && processResult.extracted_measurements.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold font-heading text-foreground mb-2">
+            Measurements
+          </h3>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-input-bg text-left">
+                  <th className="px-3 py-1.5 text-xs font-medium text-muted">Value</th>
+                  <th className="px-3 py-1.5 text-xs font-medium text-muted">Unit</th>
+                  <th className="px-3 py-1.5 text-xs font-medium text-muted">Precision</th>
+                  <th className="px-3 py-1.5 text-xs font-medium text-muted">Raw</th>
+                </tr>
+              </thead>
+              <tbody>
+                {processResult.extracted_measurements.map((m, i) => (
+                  <tr key={i} className="border-t border-border/50">
+                    <td className="px-3 py-1.5 font-mono text-foreground">{m.value}</td>
+                    <td className="px-3 py-1.5 text-foreground">{m.unit}</td>
+                    <td className="px-3 py-1.5">
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        m.uncertainty === "exact"
+                          ? "bg-green-100 text-green-700"
+                          : m.uncertainty === "approximate"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-blue-100 text-blue-700"
+                      }`}>
+                        {m.uncertainty}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1.5 text-xs text-muted italic">{m.raw_text}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Open Questions ────────────────────────────────────────────── */}
+      {processResult && processResult.open_questions.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold font-heading text-foreground mb-2">
+            Open Questions
+          </h3>
+          <div className="grid gap-1.5">
+            {processResult.open_questions.map((q, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 px-3 py-2 rounded-lg border border-border/50 bg-violet-50"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5 text-violet-600">
+                  <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <p className="text-sm text-foreground">{q}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Protocol ──────────────────────────────────────────────────── */}
+      {processResult && Array.isArray(processResult.protocol) && processResult.protocol.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold font-heading text-foreground mb-2">
+            Reconstructed Protocol
+          </h3>
+          <ol className="space-y-1 pl-1">
+            {processResult.protocol.map((step, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center mt-0.5">
+                  {i + 1}
+                </span>
+                <span className="text-foreground">{step.replace(/^\d+\.\s*/, "")}</span>
+              </li>
+            ))}
+          </ol>
         </div>
       )}
 

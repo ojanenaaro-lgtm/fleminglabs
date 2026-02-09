@@ -54,11 +54,15 @@ export async function POST(request: NextRequest) {
   const {
     transcript_chunk,
     project_id,
+    session_id,
     full_transcript,
+    previous_messages,
   } = body as {
     transcript_chunk: string;
     project_id: string;
+    session_id?: string;
     full_transcript?: string;
+    previous_messages?: string[];
   };
 
   if (!transcript_chunk) {
@@ -79,48 +83,87 @@ export async function POST(request: NextRequest) {
 
     if (project) {
       projectContext = [
-        project.name,
-        project.description,
-        project.ai_context,
+        project.name && `Project: ${project.name}`,
+        project.description && `Description: ${project.description}`,
+        project.ai_context && `AI Context: ${project.ai_context}`,
       ]
         .filter(Boolean)
         .join("\n");
     }
   }
 
-  // Fetch recent entries from this project for context
-  let recentEntries: {
+  // ── Fetch context entries in parallel ──────────────────────────────────
+
+  type EntryRow = {
     id: string;
     content: string | null;
     entry_type: string;
     tags: string[];
     created_at: string;
-  }[] = [];
+  };
 
-  if (project_id) {
-    const { data: entries } = await supabase
-      .from("entries")
-      .select("id, content, entry_type, tags, created_at")
-      .eq("project_id", project_id)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(20);
+  // 1. Current session entries (last 5)
+  const sessionEntriesPromise =
+    session_id && session_id !== "live"
+      ? supabase
+          .from("entries")
+          .select("id, content, entry_type, tags, created_at")
+          .eq("session_id", session_id)
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(5)
+      : Promise.resolve({ data: null });
 
-    if (entries) {
-      recentEntries = entries;
-    }
-  }
+  // 2. Recent project entries (last 15)
+  const recentEntriesPromise = project_id
+    ? supabase
+        .from("entries")
+        .select("id, content, entry_type, tags, created_at")
+        .eq("project_id", project_id)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(15)
+    : Promise.resolve({ data: null });
 
-  // Build prompt
+  // 3. Recent anomaly entries (last 7 days)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const anomalyEntriesPromise = project_id
+    ? supabase
+        .from("entries")
+        .select("id, content, entry_type, tags, created_at")
+        .eq("project_id", project_id)
+        .eq("user_id", user.id)
+        .eq("entry_type", "anomaly")
+        .gte("created_at", sevenDaysAgo)
+        .order("created_at", { ascending: false })
+        .limit(10)
+    : Promise.resolve({ data: null });
+
+  const [sessionResult, recentResult, anomalyResult] = await Promise.all([
+    sessionEntriesPromise,
+    recentEntriesPromise,
+    anomalyEntriesPromise,
+  ]);
+
+  const sessionEntries: EntryRow[] = sessionResult.data || [];
+  const recentEntries: EntryRow[] = recentResult.data || [];
+  const anomalyEntries: EntryRow[] = anomalyResult.data || [];
+
+  // Build prompt with all context
   const userPrompt = buildCompanionUserPrompt(
     transcript_chunk,
     full_transcript || "",
     projectContext,
-    recentEntries
+    recentEntries,
+    {
+      previousMessages: previous_messages,
+      sessionEntries,
+      anomalyEntries,
+    }
   );
 
   try {
-    const text = await generateText(RESEARCH_COMPANION_PROMPT, userPrompt, 500);
+    const text = await generateText(RESEARCH_COMPANION_PROMPT, userPrompt, 600);
 
     // Parse JSON response
     let response: CompanionResponse;
@@ -132,6 +175,8 @@ export async function POST(request: NextRequest) {
         skip: false,
         message: text,
         detected_type: null,
+        urgency: "low",
+        referenced_entries: [],
       };
     }
 

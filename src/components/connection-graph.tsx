@@ -47,6 +47,8 @@ const EDGE_COLORS: Record<ConnectionType, string> = {
   reminds_of: "#9ca3af",
   same_phenomenon: "#d97706",
   literature_link: "#7c3aed",
+  causal: "#0891b2",
+  methodological: "#65a30d",
 };
 
 

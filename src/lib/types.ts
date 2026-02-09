@@ -110,14 +110,32 @@ export type ProcessRequest = {
   projectContext?: string;
 };
 
+export type ExtractedMeasurement = {
+  value: number;
+  unit: string;
+  uncertainty: "exact" | "approximate" | "range";
+  raw_text: string;
+};
+
+export type Anomaly = {
+  description: string;
+  trigger_phrase: string;
+  severity: "notable" | "concerning" | "critical";
+};
+
 export type ProcessResponse = {
   summary: string;
+  narrative: string;
   structured_entries: StructuredEntry[];
   suggested_tags: Tag[];
   potential_connections: {
     reasoning: string;
     related_concept: string;
   }[];
+  extracted_measurements: ExtractedMeasurement[];
+  anomalies: Anomaly[];
+  open_questions: string[];
+  protocol: string[] | null;
 };
 
 export type ConnectionType =
@@ -126,7 +144,9 @@ export type ConnectionType =
   | "supports"
   | "reminds_of"
   | "same_phenomenon"
-  | "literature_link";
+  | "literature_link"
+  | "causal"
+  | "methodological";
 
 export type ConnectionSuggestion = {
   source_entry_id: string;
@@ -232,24 +252,28 @@ export type CompanionDetectedType =
   | "clarification"
   | null;
 
+export type CompanionUrgency = "high" | "medium" | "low";
+
+export type ReferencedEntry = {
+  entry_id: string;
+  date: string;
+  summary: string;
+};
+
 export type CompanionResponse = {
   skip: boolean;
   message: string;
   detected_type: CompanionDetectedType;
-  suggested_connections?: {
-    entry_id: string;
-    reasoning: string;
-  }[];
+  urgency?: CompanionUrgency;
+  referenced_entries?: ReferencedEntry[];
 };
 
 export type CompanionMessage = {
   id: string;
   message: string;
   detected_type: CompanionDetectedType;
+  urgency?: CompanionUrgency;
   timestamp: number;
-  suggested_connections?: {
-    entry_id: string;
-    reasoning: string;
-  }[];
+  referenced_entries?: ReferencedEntry[];
 };
 

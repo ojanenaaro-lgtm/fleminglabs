@@ -10,6 +10,8 @@ import {
   ArrowRight,
   Sparkles,
   Info,
+  Zap,
+  Loader2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { ConnectionGraph } from "@/components/connection-graph";
@@ -21,236 +23,9 @@ import type {
   ConnectionWithEntries,
 } from "@/lib/types";
 
-/* ── demo data ───────────────────────────────────────────────────────── */
+/* ── types ────────────────────────────────────────────────────────── */
 
-const now = Date.now();
-const day = 86_400_000;
-
-const DEMO_ENTRIES: Entry[] = [
-  {
-    id: "d1",
-    session_id: "s1",
-    project_id: "p1",
-    user_id: "u1",
-    entry_type: "observation",
-    title: "Unusual crystallization in A3",
-    content:
-      "Unusual crystallization pattern in sample A3 — needle-like structures forming at the meniscus rather than the expected plate crystals. Temperature was 4\u00b0C.",
-    raw_transcript: null,
-    audio_url: null,
-    metadata: {},
-    tags: ["crystallization", "anomaly"],
-    created_at: new Date(now - day * 3).toISOString(),
-    updated_at: new Date(now - day * 3).toISOString(),
-  },
-  {
-    id: "d2",
-    session_id: "s1",
-    project_id: "p1",
-    user_id: "u1",
-    entry_type: "measurement",
-    title: "Elevated pH in fermentation",
-    content:
-      "pH levels elevated during fermentation \u2014 reading 7.8 where expected 6.2. Possible contamination or buffer miscalculation.",
-    raw_transcript: null,
-    audio_url: null,
-    metadata: {},
-    tags: ["pH", "fermentation"],
-    created_at: new Date(now - day * 2).toISOString(),
-    updated_at: new Date(now - day * 2).toISOString(),
-  },
-  {
-    id: "d3",
-    session_id: "s2",
-    project_id: "p1",
-    user_id: "u1",
-    entry_type: "protocol_step",
-    title: "Centrifuge speed adjustment",
-    content:
-      "Modified centrifuge protocol: increased speed from 3000 to 4500 RPM for 10 minutes. Pellet formation improved significantly.",
-    raw_transcript: null,
-    audio_url: null,
-    metadata: {},
-    tags: ["centrifuge", "protocol"],
-    created_at: new Date(now - day * 2).toISOString(),
-    updated_at: new Date(now - day * 2).toISOString(),
-  },
-  {
-    id: "d4",
-    session_id: "s2",
-    project_id: "p1",
-    user_id: "u1",
-    entry_type: "voice_note",
-    title: "Enzyme activity patterns",
-    content:
-      "Thinking about the enzyme activity patterns we\u2019ve been seeing \u2014 the kinetics don\u2019t match the published Km values. Could be a different isoform.",
-    raw_transcript:
-      "Thinking about the enzyme activity patterns we've been seeing...",
-    audio_url: null,
-    metadata: {},
-    tags: ["enzyme", "kinetics"],
-    created_at: new Date(now - day * 1.5).toISOString(),
-    updated_at: new Date(now - day * 1.5).toISOString(),
-  },
-  {
-    id: "d5",
-    session_id: "s3",
-    project_id: "p1",
-    user_id: "u1",
-    entry_type: "observation",
-    title: "Temperature fluctuation correlation",
-    content:
-      "Temperature fluctuations in incubator correlate with crystallization anomalies noted earlier. 2\u00b0C drift between 2\u20134am.",
-    raw_transcript: null,
-    audio_url: null,
-    metadata: {},
-    tags: ["temperature", "incubator"],
-    created_at: new Date(now - day).toISOString(),
-    updated_at: new Date(now - day).toISOString(),
-  },
-  {
-    id: "d6",
-    session_id: "s3",
-    project_id: "p1",
-    user_id: "u1",
-    entry_type: "observation",
-    title: "Protein folding anomaly batch 7",
-    content:
-      "Protein folding anomaly in batch 7 \u2014 unexpected beta-sheet formation where alpha-helix was predicted. Running CD spectroscopy to confirm.",
-    raw_transcript: null,
-    audio_url: null,
-    metadata: {},
-    tags: ["protein", "folding", "anomaly"],
-    created_at: new Date(now - day * 0.5).toISOString(),
-    updated_at: new Date(now - day * 0.5).toISOString(),
-  },
-  {
-    id: "d7",
-    session_id: "s3",
-    project_id: "p1",
-    user_id: "u1",
-    entry_type: "protocol_step",
-    title: "Buffer switch to HEPES",
-    content:
-      "New buffer solution preparation: switched from Tris-HCl to HEPES at 25mM, pH 7.4. Better stability at room temperature.",
-    raw_transcript: null,
-    audio_url: null,
-    metadata: {},
-    tags: ["buffer", "HEPES"],
-    created_at: new Date(now - day * 0.3).toISOString(),
-    updated_at: new Date(now - day * 0.3).toISOString(),
-  },
-  {
-    id: "d8",
-    session_id: "s3",
-    project_id: "p1",
-    user_id: "u1",
-    entry_type: "measurement",
-    title: "Spectroscopy readings Feb 5",
-    content:
-      "Spectroscopy readings from Feb 5 show absorption peak shift at 280nm \u2014 consistent with conformational change in the protein sample.",
-    raw_transcript: null,
-    audio_url: null,
-    metadata: {},
-    tags: ["spectroscopy", "absorption"],
-    created_at: new Date(now - 3600000).toISOString(),
-    updated_at: new Date(now - 3600000).toISOString(),
-  },
-];
-
-const DEMO_CONNECTIONS: ConnectionWithEntries[] = [
-  {
-    id: "c1",
-    source_entry_id: "d1",
-    target_entry_id: "d6",
-    connection_type: "pattern",
-    reasoning:
-      "Both entries describe unexpected structural anomalies in separate experiments \u2014 needle-like crystal formation and unexpected beta-sheet folding. These may share a common environmental factor such as temperature instability or buffer composition.",
-    confidence: 0.87,
-    created_at: new Date(now - day * 0.4).toISOString(),
-    status: "pending",
-    source_entry: DEMO_ENTRIES[0],
-    target_entry: DEMO_ENTRIES[5],
-  },
-  {
-    id: "c2",
-    source_entry_id: "d2",
-    target_entry_id: "d5",
-    connection_type: "supports",
-    reasoning:
-      "The elevated pH readings during fermentation may be explained by the temperature fluctuations in the incubator. Temperature drift could affect buffering capacity and microbial metabolism rates.",
-    confidence: 0.74,
-    created_at: new Date(now - day * 0.3).toISOString(),
-    status: "pending",
-    source_entry: DEMO_ENTRIES[1],
-    target_entry: DEMO_ENTRIES[4],
-  },
-  {
-    id: "c3",
-    source_entry_id: "d1",
-    target_entry_id: "d2",
-    connection_type: "reminds_of",
-    reasoning:
-      "Crystal formation conditions are highly sensitive to pH. The unexpected pH elevation could directly influence crystallization morphology, potentially explaining the needle-like structures observed.",
-    confidence: 0.61,
-    created_at: new Date(now - day * 0.2).toISOString(),
-    status: "confirmed",
-    source_entry: DEMO_ENTRIES[0],
-    target_entry: DEMO_ENTRIES[1],
-  },
-  {
-    id: "c4",
-    source_entry_id: "d3",
-    target_entry_id: "d7",
-    connection_type: "pattern",
-    reasoning:
-      "Both protocol modifications represent optimization efforts that improved experimental outcomes. The centrifuge adjustment and buffer switch may reflect a systematic improvement phase in the project.",
-    confidence: 0.52,
-    created_at: new Date(now - day * 0.15).toISOString(),
-    status: "pending",
-    source_entry: DEMO_ENTRIES[2],
-    target_entry: DEMO_ENTRIES[6],
-  },
-  {
-    id: "c5",
-    source_entry_id: "d5",
-    target_entry_id: "d8",
-    connection_type: "supports",
-    reasoning:
-      "The temperature fluctuation data aligns with the absorption peak shift seen in spectroscopy. Conformational changes in proteins are temperature-sensitive, and the 2\u00b0C drift could be sufficient to cause the observed shift.",
-    confidence: 0.82,
-    created_at: new Date(now - 1800000).toISOString(),
-    status: "pending",
-    source_entry: DEMO_ENTRIES[4],
-    target_entry: DEMO_ENTRIES[7],
-  },
-  {
-    id: "c6",
-    source_entry_id: "d4",
-    target_entry_id: "d6",
-    connection_type: "contradiction",
-    reasoning:
-      "The voice note describes enzyme kinetics that suggest protein stability, but the observation of unexpected beta-sheet formation indicates structural instability. This contradiction may point to different protein populations in the sample.",
-    confidence: 0.68,
-    created_at: new Date(now - 900000).toISOString(),
-    status: "pending",
-    source_entry: DEMO_ENTRIES[3],
-    target_entry: DEMO_ENTRIES[5],
-  },
-  {
-    id: "c7",
-    source_entry_id: "d1",
-    target_entry_id: "d5",
-    connection_type: "supports",
-    reasoning:
-      "The temperature drift in the incubator directly explains the unusual crystallization patterns. Crystal nucleation and growth are extremely sensitive to temperature, and a 2\u00b0C overnight drift would alter morphology.",
-    confidence: 0.91,
-    created_at: new Date(now - 600000).toISOString(),
-    status: "pending",
-    source_entry: DEMO_ENTRIES[0],
-    target_entry: DEMO_ENTRIES[4],
-  },
-];
+type ProjectOption = { id: string; name: string };
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
 
@@ -261,6 +36,8 @@ const ALL_TYPES: ConnectionType[] = [
   "reminds_of",
   "same_phenomenon",
   "literature_link",
+  "causal",
+  "methodological",
 ];
 
 const TYPE_LABELS: Record<ConnectionType, string> = {
@@ -270,6 +47,8 @@ const TYPE_LABELS: Record<ConnectionType, string> = {
   reminds_of: "Reminds of",
   same_phenomenon: "Same phenomenon",
   literature_link: "Literature link",
+  causal: "Causal",
+  methodological: "Methodological",
 };
 
 const TYPE_COLORS: Record<ConnectionType, string> = {
@@ -279,6 +58,8 @@ const TYPE_COLORS: Record<ConnectionType, string> = {
   reminds_of: "#9ca3af",
   same_phenomenon: "#d97706",
   literature_link: "#7c3aed",
+  causal: "#0891b2",
+  methodological: "#65a30d",
 };
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -289,11 +70,12 @@ export default function ConnectionsPage() {
   /* ── state --------------------------------------------------------- */
 
   const [view, setView] = useState<"graph" | "list">("graph");
-  const [entries, setEntries] = useState<Entry[]>(DEMO_ENTRIES);
-  const [connections, setConnections] =
-    useState<ConnectionWithEntries[]>(DEMO_CONNECTIONS);
-  const [isDemo, setIsDemo] = useState(true);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [connections, setConnections] = useState<ConnectionWithEntries[]>([]);
   const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [deepAnalysisRunning, setDeepAnalysisRunning] = useState(false);
+  const [deepAnalysisResult, setDeepAnalysisResult] = useState<string | null>(null);
 
   // filters
   const [activeTypes, setActiveTypes] = useState<ConnectionType[]>(ALL_TYPES);
@@ -314,7 +96,15 @@ export default function ConnectionsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
-        // fetch connections with joined entries
+        // Fetch projects for deep analysis
+        const { data: projectData } = await supabase
+          .from("projects")
+          .select("id, name")
+          .eq("owner_id", user.id)
+          .order("updated_at", { ascending: false });
+        if (projectData) setProjects(projectData);
+
+        // Fetch connections with joined entries
         const { data: conns } = await supabase
           .from("connections")
           .select(
@@ -332,14 +122,12 @@ export default function ConnectionsPage() {
             ...c,
             connection_type: c.connection_type as ConnectionType,
             confidence: c.confidence ?? 0,
-            status: "pending" as ConnectionStatus,
+            status: (c.status || "pending") as ConnectionStatus,
             source_entry: c.source_entry as Entry,
             target_entry: c.target_entry as Entry,
           }));
           setConnections(enriched);
-          setIsDemo(false);
 
-          // collect unique entries
           const entryMap = new Map<string, Entry>();
           enriched.forEach((c) => {
             entryMap.set(c.source_entry.id, c.source_entry);
@@ -348,7 +136,7 @@ export default function ConnectionsPage() {
           setEntries(Array.from(entryMap.values()));
         }
       } catch {
-        // keep demo data
+        // leave empty
       } finally {
         setLoading(false);
       }
@@ -391,6 +179,54 @@ export default function ConnectionsPage() {
         ? prev.filter((t) => t !== type)
         : [...prev, type]
     );
+  }, []);
+
+  const runDeepAnalysis = useCallback(async (projectId: string) => {
+    setDeepAnalysisRunning(true);
+    setDeepAnalysisResult(null);
+    try {
+      const res = await fetch("/api/ai/deep-connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDeepAnalysisResult(`Found ${data.connections_found} new connections`);
+        // Reload connections
+        if (data.connections_found > 0) {
+          const supabase = createClient();
+          const { data: conns } = await supabase
+            .from("connections")
+            .select(`*, source_entry:entries!connections_source_entry_id_fkey(*), target_entry:entries!connections_target_entry_id_fkey(*)`)
+            .order("created_at", { ascending: false })
+            .limit(100);
+          if (conns && conns.length > 0) {
+            const enriched: ConnectionWithEntries[] = conns.map((c) => ({
+              ...c,
+              connection_type: c.connection_type as ConnectionType,
+              confidence: c.confidence ?? 0,
+              status: (c.status || "pending") as ConnectionStatus,
+              source_entry: c.source_entry as Entry,
+              target_entry: c.target_entry as Entry,
+            }));
+            setConnections(enriched);
+            const entryMap = new Map<string, Entry>();
+            enriched.forEach((c) => {
+              entryMap.set(c.source_entry.id, c.source_entry);
+              entryMap.set(c.target_entry.id, c.target_entry);
+            });
+            setEntries(Array.from(entryMap.values()));
+          }
+        }
+      } else {
+        setDeepAnalysisResult(data.error || "Analysis failed");
+      }
+    } catch {
+      setDeepAnalysisResult("Network error");
+    } finally {
+      setDeepAnalysisRunning(false);
+    }
   }, []);
 
   /* ── related connections for selected entry ------------------------ */
@@ -493,14 +329,74 @@ export default function ConnectionsPage() {
         ))}
       </div>
 
-      {/* demo notice */}
-      {isDemo && !loading && (
-        <div className="flex items-center gap-2.5 bg-primary-light/50 border border-primary/10 rounded-lg px-4 py-2.5">
-          <Sparkles className="w-4 h-4 text-primary shrink-0" />
-          <p className="text-xs text-foreground">
-            <span className="font-medium">Showing example connections.</span>{" "}
-            Start recording lab sessions to discover real connections between
-            your entries.
+      {/* deep analysis button + result */}
+      {!loading && projects.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          {projects.length === 1 ? (
+            <button
+              onClick={() => runDeepAnalysis(projects[0].id)}
+              disabled={deepAnalysisRunning}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium
+                bg-primary text-white hover:bg-primary-hover transition-colors cursor-pointer
+                disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deepAnalysisRunning ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Zap className="w-3.5 h-3.5" />
+              )}
+              {deepAnalysisRunning ? "Analyzing..." : "Run Deep Analysis"}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <select
+                id="deep-project"
+                defaultValue={projects[0]?.id}
+                className="px-2.5 py-2 text-xs rounded-lg border border-border/60 bg-white"
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => {
+                  const sel = (document.getElementById("deep-project") as HTMLSelectElement)?.value;
+                  if (sel) runDeepAnalysis(sel);
+                }}
+                disabled={deepAnalysisRunning}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium
+                  bg-primary text-white hover:bg-primary-hover transition-colors cursor-pointer
+                  disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deepAnalysisRunning ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Zap className="w-3.5 h-3.5" />
+                )}
+                {deepAnalysisRunning ? "Analyzing..." : "Run Deep Analysis"}
+              </button>
+            </div>
+          )}
+          {deepAnalysisResult && (
+            <span className="text-xs text-muted">{deepAnalysisResult}</span>
+          )}
+        </div>
+      )}
+
+      {/* empty state */}
+      {!loading && connections.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+            <Sparkles className="w-6 h-6 text-primary" />
+          </div>
+          <h2 className="text-base font-semibold font-heading text-foreground mb-1">
+            No connections yet
+          </h2>
+          <p className="text-sm text-muted max-w-md">
+            Connections appear as you add entries. The Serendipity Engine analyzes each new entry against your existing work.
+          </p>
+          <p className="text-xs text-muted mt-2">
+            Or click &ldquo;Run Deep Analysis&rdquo; above to scan all existing entries at once.
           </p>
         </div>
       )}

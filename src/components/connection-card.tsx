@@ -43,6 +43,16 @@ const TYPE_STYLES: Record<
     text: "text-purple-700",
     label: "Literature link",
   },
+  causal: {
+    bg: "bg-cyan-50",
+    text: "text-cyan-700",
+    label: "Causal",
+  },
+  methodological: {
+    bg: "bg-lime-50",
+    text: "text-lime-700",
+    label: "Methodological",
+  },
 };
 
 /* ── props ────────────────────────────────────────────────────────────── */

@@ -101,7 +101,6 @@ export default function RecordPage() {
   const companion = useAICompanion({
     sessionId: "live",
     projectId: selectedProject,
-    intervalSeconds: 30,
   });
 
   // Track last processed segment index for companion
@@ -247,7 +246,7 @@ export default function RecordPage() {
     // Create a single voice_note entry with the full transcript
     const fullText = segments.map((s) => s.text).join("\n");
 
-    await supabase.from("entries").insert({
+    const { data: entryData } = await supabase.from("entries").insert({
       session_id: session.id,
       project_id: selectedProject,
       user_id: user.id,
@@ -256,7 +255,16 @@ export default function RecordPage() {
       content: fullText,
       raw_transcript: fullText,
       tags: [...new Set(segments.filter((s) => s.tag).map((s) => s.tag!))],
-    });
+    }).select("id").single();
+
+    // Fire-and-forget: auto-discover connections for the new entry
+    if (entryData) {
+      fetch("/api/ai/auto-connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entry_id: entryData.id }),
+      }).catch(() => {});
+    }
 
     router.push("/entries");
   }, [selectedProject, sessionTitle, recorder.duration, segments, router]);
@@ -535,6 +543,7 @@ export default function RecordPage() {
               messages={companion.messages}
               isThinking={companion.isThinking}
               isRecording={isRecording || isPaused}
+              insightCount={companion.insightCount}
             />
           </aside>
         </div>

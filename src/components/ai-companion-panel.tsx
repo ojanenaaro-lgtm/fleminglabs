@@ -9,8 +9,9 @@ import {
   Lightbulb,
   HelpCircle,
   Loader2,
+  FileText,
 } from "lucide-react";
-import type { CompanionMessage, CompanionDetectedType } from "@/lib/types";
+import type { CompanionMessage, CompanionDetectedType, CompanionUrgency } from "@/lib/types";
 
 const TYPE_CONFIG: Record<
   string,
@@ -48,16 +49,24 @@ const TYPE_CONFIG: Record<
   },
 };
 
+const URGENCY_STYLES: Record<string, string> = {
+  high: "border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.4)] animate-[urgencyPulse_2s_ease-in-out_infinite]",
+  medium: "border-amber-200/80",
+  low: "border-border/30",
+};
+
 interface AICompanionPanelProps {
   messages: CompanionMessage[];
   isThinking: boolean;
   isRecording: boolean;
+  insightCount?: number;
 }
 
 export function AICompanionPanel({
   messages,
   isThinking,
   isRecording,
+  insightCount = 0,
 }: AICompanionPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -70,12 +79,25 @@ export function AICompanionPanel({
 
   return (
     <div className="flex flex-col h-full bg-white rounded-xl border border-border/40 overflow-hidden shadow-[var(--card-shadow)]">
+      {/* Urgency pulse keyframe — injected once */}
+      <style>{`
+        @keyframes urgencyPulse {
+          0%, 100% { box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.3); }
+          50% { box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15), 0 0 12px rgba(251, 191, 36, 0.1); }
+        }
+      `}</style>
+
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30">
         <Sparkles className="w-4 h-4 text-primary" />
         <h3 className="text-sm font-semibold font-heading text-foreground">
           Research Companion
         </h3>
+        {insightCount > 0 && (
+          <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary-light text-primary text-[10px] font-semibold tabular-nums">
+            {insightCount}
+          </span>
+        )}
         {isRecording && (
           <span className="ml-auto flex items-center gap-1.5 text-[10px] text-muted">
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -107,6 +129,7 @@ export function AICompanionPanel({
             ? TYPE_CONFIG[msg.detected_type]
             : null;
           const Icon = config?.icon || Sparkles;
+          const urgencyClass = URGENCY_STYLES[msg.urgency || "low"] || URGENCY_STYLES.low;
 
           return (
             <div
@@ -116,39 +139,44 @@ export function AICompanionPanel({
                 animationFillMode: "both",
               }}
             >
-              <div className="rounded-lg border border-border/30 bg-background p-3">
-                {/* Type badge */}
-                {config && (
-                  <div className="flex items-center gap-1.5 mb-2">
+              <div className={`rounded-lg border bg-background p-3 ${urgencyClass}`}>
+                {/* Type badge + urgency indicator */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  {config && (
                     <div
                       className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${config.bg} ${config.color}`}
                     >
                       <Icon className="w-3 h-3" />
                       {config.label}
                     </div>
-                  </div>
-                )}
+                  )}
+                  {msg.urgency === "high" && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800">
+                      Urgent
+                    </span>
+                  )}
+                </div>
 
                 {/* Message */}
                 <p className="text-sm text-foreground leading-relaxed">
                   {msg.message}
                 </p>
 
-                {/* Suggested connections */}
-                {msg.suggested_connections &&
-                  msg.suggested_connections.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-border/20">
-                      {msg.suggested_connections.map((conn, i) => (
-                        <div
-                          key={i}
-                          className="flex items-start gap-1.5 text-xs text-muted"
-                        >
-                          <Link2 className="w-3 h-3 mt-0.5 shrink-0" />
-                          <span>{conn.reasoning}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                {/* Referenced entries chips */}
+                {msg.referenced_entries && msg.referenced_entries.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-border/20 flex flex-wrap gap-1.5">
+                    {msg.referenced_entries.map((ref, i) => (
+                      <div
+                        key={i}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 text-[10px] text-muted"
+                        title={ref.summary}
+                      >
+                        <FileText className="w-2.5 h-2.5" />
+                        <span className="font-mono">{ref.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Timestamp */}
                 <p className="text-[10px] text-muted/60 mt-2">

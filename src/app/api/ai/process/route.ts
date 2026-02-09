@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         for await (const chunk of generateTextStream(
           PROCESS_TRANSCRIPT_SYSTEM,
           userPrompt,
-          4096
+          6144
         )) {
           fullText += chunk;
           controller.enqueue(
@@ -76,18 +76,31 @@ export async function POST(request: NextRequest) {
         }
 
         // Parse and validate the final JSON
-        let parsed: ProcessResponse;
+        let raw: Record<string, unknown>;
         try {
-          parsed = JSON.parse(fullText);
+          raw = JSON.parse(fullText);
         } catch {
           // If model wrapped in markdown fences, try to extract
           const match = fullText.match(/```(?:json)?\s*([\s\S]*?)```/);
           if (match) {
-            parsed = JSON.parse(match[1]);
+            raw = JSON.parse(match[1]);
           } else {
             throw new Error("Failed to parse AI response as JSON");
           }
         }
+
+        // Ensure new fields have defaults so the UI never crashes
+        const parsed: ProcessResponse = {
+          summary: (raw.summary as string) ?? "",
+          narrative: (raw.narrative as string) ?? "",
+          structured_entries: (raw.structured_entries as ProcessResponse["structured_entries"]) ?? [],
+          suggested_tags: (raw.suggested_tags as ProcessResponse["suggested_tags"]) ?? [],
+          potential_connections: (raw.potential_connections as ProcessResponse["potential_connections"]) ?? [],
+          extracted_measurements: (raw.extracted_measurements as ProcessResponse["extracted_measurements"]) ?? [],
+          anomalies: (raw.anomalies as ProcessResponse["anomalies"]) ?? [],
+          open_questions: (raw.open_questions as string[]) ?? [],
+          protocol: (raw.protocol as string[] | null) ?? null,
+        };
 
         controller.enqueue(
           encoder.encode(

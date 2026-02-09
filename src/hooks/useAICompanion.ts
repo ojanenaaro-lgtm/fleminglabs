@@ -1,23 +1,53 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import type { CompanionMessage, CompanionResponse } from "@/lib/types";
+import { useState, useRef, useCallback, useEffect } from "react";
+import type { CompanionMessage, CompanionResponse, CompanionUrgency } from "@/lib/types";
+
+// ── Trigger word detection ──────────────────────────────────────────────
+
+const TRIGGER_WORDS = [
+  "weird", "unexpected", "strange", "wrong", "contamination", "error",
+  "interesting", "huh", "different from", "not what i expected",
+  "wonder if", "maybe we should", "anomal",
+  // Finnish equivalents
+  "outo", "odottamaton", "virhe", "kontaminaatio", "erilainen",
+  "ei ole mitä odotin", "mietin jos", "poikkeama",
+];
+
+function hasTriggerWords(text: string): boolean {
+  const lower = text.toLowerCase();
+  return TRIGGER_WORDS.some((t) => lower.includes(t));
+}
+
+// ── Rolling buffer helpers ──────────────────────────────────────────────
+
+const BUFFER_DURATION_MS = 3 * 60 * 1000; // 3 minutes
+const COOLDOWN_MS = 45_000; // 45 seconds
+const COOLDOWN_HIGH_MS = 10_000; // 10 seconds after high-urgency
+const PAUSE_THRESHOLD_MS = 3_000; // 3 seconds of silence to trigger
+
+interface BufferEntry {
+  text: string;
+  timestamp: number;
+}
+
+// ── Hook ────────────────────────────────────────────────────────────────
 
 interface UseAICompanionOptions {
   sessionId: string;
   projectId: string;
-  /** Minimum seconds between AI requests */
-  intervalSeconds?: number;
 }
 
 export interface UseAICompanionResult {
   messages: CompanionMessage[];
   isThinking: boolean;
-  /** Send the current transcript buffer to the AI */
-  sendChunk: (chunk: string, fullTranscript: string) => Promise<void>;
-  /** Manually trigger a check (e.g. when user tags something or pauses) */
+  /** Feed transcript text as it comes in — triggers are evaluated internally */
+  sendChunk: (chunk: string, fullTranscript: string) => void;
+  /** Force a check (e.g. when user tags something) */
   triggerCheck: (chunk: string, fullTranscript: string) => Promise<void>;
   clearMessages: () => void;
+  /** Number of times the companion actually spoke */
+  insightCount: number;
 }
 
 let msgIdCounter = 0;
@@ -25,15 +55,39 @@ let msgIdCounter = 0;
 export function useAICompanion({
   sessionId,
   projectId,
-  intervalSeconds = 30,
 }: UseAICompanionOptions): UseAICompanionResult {
   const [messages, setMessages] = useState<CompanionMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
 
-  const lastSentRef = useRef<number>(0);
-  const bufferRef = useRef<string>("");
   const pendingRef = useRef(false);
+  const lastSentRef = useRef<number>(0);
+  const lastUrgencyRef = useRef<CompanionUrgency>("low");
+  const bufferRef = useRef<BufferEntry[]>([]);
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestFullTranscriptRef = useRef<string>("");
+  const previousMessagesRef = useRef<string[]>([]);
 
+  // Prune buffer to last 3 minutes
+  const pruneBuffer = useCallback(() => {
+    const cutoff = Date.now() - BUFFER_DURATION_MS;
+    bufferRef.current = bufferRef.current.filter((e) => e.timestamp > cutoff);
+  }, []);
+
+  // Get rolling buffer text
+  const getBufferText = useCallback(() => {
+    pruneBuffer();
+    return bufferRef.current.map((e) => e.text).join(" ");
+  }, [pruneBuffer]);
+
+  // Check cooldown
+  const isCoolingDown = useCallback(() => {
+    const elapsed = Date.now() - lastSentRef.current;
+    const cooldown =
+      lastUrgencyRef.current === "high" ? COOLDOWN_HIGH_MS : COOLDOWN_MS;
+    return elapsed < cooldown;
+  }, []);
+
+  // Core API call
   const callCompanion = useCallback(
     async (chunk: string, fullTranscript: string) => {
       if (pendingRef.current) return;
@@ -51,13 +105,11 @@ export function useAICompanion({
             session_id: sessionId,
             project_id: projectId,
             full_transcript: fullTranscript,
+            previous_messages: previousMessagesRef.current,
           }),
         });
 
-        if (!res.ok) {
-          // Silently ignore errors — companion is non-critical
-          return;
-        }
+        if (!res.ok) return;
 
         const data: CompanionResponse = await res.json();
 
@@ -66,10 +118,13 @@ export function useAICompanion({
             id: `companion-${++msgIdCounter}`,
             message: data.message,
             detected_type: data.detected_type,
+            urgency: data.urgency,
             timestamp: Date.now(),
-            suggested_connections: data.suggested_connections,
+            referenced_entries: data.referenced_entries,
           };
           setMessages((prev) => [...prev, msg]);
+          previousMessagesRef.current.push(data.message);
+          lastUrgencyRef.current = data.urgency || "low";
         }
       } catch {
         // Silent fail — don't interrupt the researcher
@@ -77,39 +132,84 @@ export function useAICompanion({
         pendingRef.current = false;
         setIsThinking(false);
         lastSentRef.current = Date.now();
-        bufferRef.current = "";
       }
     },
     [sessionId, projectId]
   );
 
-  const sendChunk = useCallback(
-    async (chunk: string, fullTranscript: string) => {
-      bufferRef.current += " " + chunk;
+  // ── sendChunk — called on every new transcript segment ────────────────
 
-      const elapsed = Date.now() - lastSentRef.current;
-      if (elapsed < intervalSeconds * 1000) {
-        return; // Not enough time has passed
+  const sendChunk = useCallback(
+    (chunk: string, fullTranscript: string) => {
+      if (!chunk.trim()) return;
+
+      // Add to rolling buffer
+      bufferRef.current.push({ text: chunk, timestamp: Date.now() });
+      latestFullTranscriptRef.current = fullTranscript;
+
+      // Clear any existing pause timer
+      if (pauseTimerRef.current) {
+        clearTimeout(pauseTimerRef.current);
+        pauseTimerRef.current = null;
       }
 
-      await callCompanion(bufferRef.current, fullTranscript);
+      // Immediate send on trigger words (respects cooldown)
+      if (hasTriggerWords(chunk) && !isCoolingDown()) {
+        const bufferText = getBufferText();
+        callCompanion(bufferText, fullTranscript);
+        return;
+      }
+
+      // Set a pause timer — if no new chunk arrives in 3s, send
+      pauseTimerRef.current = setTimeout(() => {
+        if (!isCoolingDown()) {
+          const bufferText = getBufferText();
+          if (bufferText.trim()) {
+            callCompanion(bufferText, latestFullTranscriptRef.current);
+          }
+        }
+      }, PAUSE_THRESHOLD_MS);
     },
-    [callCompanion, intervalSeconds]
+    [callCompanion, isCoolingDown, getBufferText]
   );
+
+  // ── triggerCheck — force a check (tag applied, pause button, etc.) ────
 
   const triggerCheck = useCallback(
     async (chunk: string, fullTranscript: string) => {
-      // Force a check regardless of timing (e.g. on tag, pause)
-      const combined = bufferRef.current + " " + chunk;
-      await callCompanion(combined, fullTranscript);
+      // Clear pause timer
+      if (pauseTimerRef.current) {
+        clearTimeout(pauseTimerRef.current);
+        pauseTimerRef.current = null;
+      }
+
+      const bufferText = getBufferText() + " " + chunk;
+      await callCompanion(bufferText, fullTranscript);
     },
-    [callCompanion]
+    [callCompanion, getBufferText]
   );
+
+  // ── clearMessages ─────────────────────────────────────────────────────
 
   const clearMessages = useCallback(() => {
     setMessages([]);
-    bufferRef.current = "";
+    bufferRef.current = [];
     lastSentRef.current = 0;
+    lastUrgencyRef.current = "low";
+    previousMessagesRef.current = [];
+    if (pauseTimerRef.current) {
+      clearTimeout(pauseTimerRef.current);
+      pauseTimerRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pauseTimerRef.current) {
+        clearTimeout(pauseTimerRef.current);
+      }
+    };
   }, []);
 
   return {
@@ -118,5 +218,6 @@ export function useAICompanion({
     sendChunk,
     triggerCheck,
     clearMessages,
+    insightCount: messages.length,
   };
 }

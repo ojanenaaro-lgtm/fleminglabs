@@ -6,6 +6,8 @@ import Link from "next/link";
 import type { EntryType } from "@/lib/types";
 import type { EntryWithRelations } from "../actions";
 import { updateEntry, deleteEntries } from "../actions";
+import { EntryEnrichment } from "@/components/entry-enrichment";
+import { AutoConnectTrigger } from "@/components/auto-connect-trigger";
 import {
   ArrowLeft,
   Mic,
@@ -458,6 +460,9 @@ export function EntryDetail({ entry }: EntryDetailProps) {
         </div>
       </div>
 
+      {/* ── AI Enrichment ────────────────────────────────────────────── */}
+      <EntryEnrichment entryId={entry.id} />
+
       {/* ── Metadata ─────────────────────────────────────────────────── */}
       {hasMetadata && (
         <div className="bg-white rounded-xl border border-border p-6">
@@ -480,7 +485,7 @@ export function EntryDetail({ entry }: EntryDetailProps) {
       )}
 
       {/* ── Connections ──────────────────────────────────────────────── */}
-      {entry.connections.length > 0 && (
+      {entry.connections.length > 0 ? (
         <div className="bg-white rounded-xl border border-border p-6">
           <h2 className="text-sm font-semibold font-heading flex items-center gap-2 mb-4">
             <Link2 className="w-4 h-4 text-muted" />
@@ -536,6 +541,8 @@ export function EntryDetail({ entry }: EntryDetailProps) {
             })}
           </div>
         </div>
+      ) : (
+        <AutoConnectTrigger entryId={entry.id} />
       )}
 
       {/* ── Related Literature (AI-found) ────────────────────────────── */}
